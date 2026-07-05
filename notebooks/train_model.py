@@ -15,8 +15,8 @@ sys.path.append("../")
 # ----------------------
 data = gpd.read_file("../data/london_urban_design_data.gpkg")
 
-borough_name = "Harrow, London, UK"
-"City of London, London, UK"
+borough_name = "City of London, London, UK"
+#"Harrow, London, UK"
 
 borough_gdf = ox.geocode_to_gdf(borough_name)
 borough_polygon = borough_gdf.geometry.iloc[0]
@@ -29,18 +29,7 @@ borough_data.head()
  
 
 # ----------------------------------------------------------------------
-# Split strategy 1: random (baseline, for comparison)
-# ----------------------------------------------------------------------
-X = borough_data.copy().drop(columns=["LST", "geometry", "lon", "lat"])
-y = borough_data["LST"]
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=203)
-
-print("Training set size:", X_train.shape)
-print("Testing set size:", X_test.shape)
-
-# ----------------------------------------------------------------------
-# Split strategy 2: spatial blocks (grid-based GroupKFold)
+# Spatial split by blocks (grid-based GroupKFold)
 # ----------------------------------------------------------------------
 X_spatial = borough_data.drop(columns=["LST", "geometry", "lon", "lat"]).reset_index(drop=True)
 y_spatial = borough_data["LST"].reset_index(drop=True)
@@ -55,26 +44,6 @@ y_idx = np.digitize(geom.y, y_bins, right=True)
 spatial_groups = x_idx * 5 + y_idx
 
 skcv = GroupKFold(n_splits=5).split(X_spatial, y_spatial, groups=spatial_groups)
-
-
-# ----------------------------------------------------------------------
-# Train + evaluate: random split
-# ----------------------------------------------------------------------
-random_model = RandomForestRegressor(n_estimators=300, random_state=203, n_jobs=-1)
-random_model.fit(X_train, y_train)
-random_preds = random_model.predict(X_test)
-
-random_metrics = {
-    "MAE": mean_absolute_error(y_test, random_preds),
-    "RMSE": mean_squared_error(y_test, random_preds) ** 0.5,
-    "R2": r2_score(y_test, random_preds),
-    "n_train": len(X_train),
-    "n_test": len(X_test),
-    "feature_importances": pd.Series(
-        random_model.feature_importances_, index=X_train.columns
-    ).sort_values(ascending=False),
-}
-print(random_metrics)
 
 
 # ----------------------------------------------------------------------

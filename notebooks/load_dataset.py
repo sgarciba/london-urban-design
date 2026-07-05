@@ -1,4 +1,6 @@
 # Dataset from https://code.earthengine.google.com/
+import json
+import tempfile
 import requests
 import rasterio
 import osmnx as ox
@@ -26,13 +28,18 @@ def download_landsat(GOOGLE_DRIVE_CLIENT_SECRETS_JSON, FOLDER_NAME, FILE_NAME):
         "oauth_scope": ["https://www.googleapis.com/auth/drive"]
     }
 
-    gauth.LoadClientConfigFile(GOOGLE_DRIVE_CLIENT_SECRETS_JSON)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(GOOGLE_DRIVE_CLIENT_SECRETS_JSON, f)
+        client_secrets_path = f.name
+
+    gauth.LoadClientConfigFile(client_secrets_path)
+    os.remove(client_secrets_path)
     gauth.LocalWebserverAuth()
 
     drive = GoogleDrive(gauth)
 
     folder_list = drive.ListFile({
-        'q': f"title={FOLDER_NAME} and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        'q': f"title='{FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
     }).GetList()
 
     folder_id = folder_list[0]['id']
@@ -98,7 +105,8 @@ def load_landsat_data(FILE_NAME):
         "lat": np.array(ys).ravel(),
         "NDVI": data[0].ravel(),
         "NDBI": data[1].ravel(),
-        "LST": data[2].ravel()
+        "MNDWI": data[2].ravel(),
+        "LST": data[3].ravel()
     })
 
     df.head()
