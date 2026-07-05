@@ -11,6 +11,7 @@ from config import ADMINISTRATIVE_AREA
 # Download the buildings table
 # download_buildings_osmnx(ADMINISTRATIVE_AREA, KEEP_COLS, req_timeout=600)
 
+
 # Load raw tables
 buildings_df = gpd.read_file("../data/osmnx_buildings.gpkg")
 landsat_gdf = load_landsat_data("London_LST_NDVI_NDBI.tif")
@@ -43,8 +44,6 @@ print('Buildings After:', buildings_df_clean.shape)
 cells = points_to_cells(landsat_gdf_clean)          # auto-infers lon/lat resolution separately
 density_grid = compute_density(buildings_df_clean, cells)
 london_urban_design_df = attach_density_to_points(landsat_gdf_clean, density_grid)
-
-london_urban_design_df.shape
 
 
 # ======================

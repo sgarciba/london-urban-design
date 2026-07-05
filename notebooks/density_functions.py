@@ -9,7 +9,7 @@ sys.path.append("../")
 # CONFIG
 # ----------------------------------------------------------------------
 
-OUT_DIR = "./data/"
+OUT_DIR = "../data/"
 
 # Columns worth keeping out of the ~1700+ sparse OSM tag columns.
 # Add/remove freely depending on what you actually need downstream.
