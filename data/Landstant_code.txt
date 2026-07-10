@@ -49,27 +49,37 @@ var ndbi = optical.normalizedDifference([
 ]).rename('NDBI');
 
 // ==========================
-// 6. LST in Celsius
+// 6. MNDWI (NEW)
+// ==========================
+var mndwi = optical.normalizedDifference([
+  'SR_B3', // Green
+  'SR_B6'  // SWIR1
+]).rename('MNDWI');
+
+// ==========================
+// 7. LST in Celsius
 // ==========================
 var lst = thermal
   .subtract(273.15)
   .rename('LST');
 
 // ==========================
-// 7. Stack all variables
+// 8. Stack all variables
 // ==========================
 var ndvi = ndvi.float();
 var ndbi = ndbi.float();
+var mndwi = mndwi.float();
 var lst = lst.float();
 
 var output = ee.Image.cat([
   ndvi,
   ndbi,
+  mndwi,
   lst
 ]);
 
 // ==========================
-// 8. Export as GeoTIFF
+// 9. Export as GeoTIFF
 // ==========================
 Export.image.toDrive({
   image: output,
@@ -84,7 +94,7 @@ Export.image.toDrive({
 });
 
 // ==========================
-// 9. Visualise layers
+// 10. Visualise layers
 // ==========================
 Map.addLayer(ndvi,
   {min: -1, max: 1, palette: ['brown', 'yellow', 'green']},
@@ -93,6 +103,10 @@ Map.addLayer(ndvi,
 Map.addLayer(ndbi,
   {min: -1, max: 1, palette: ['blue', 'white', 'red']},
   'NDBI');
+
+Map.addLayer(mndwi,
+  {min: -1, max: 1, palette: ['brown', 'white', 'blue']},
+  'MNDWI');
 
 Map.addLayer(lst,
   {min: 15, max: 40, palette: ['blue', 'yellow', 'red']},
