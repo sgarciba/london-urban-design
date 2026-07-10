@@ -74,7 +74,26 @@ features = ["NDVI", "NDBI", "LST", "MNDWI", "building_density", "building_volume
 
 borough_data.hist(column=features, bins=30, figsize=(12, 8), layout=(2, 3), grid=False)
 plt.suptitle("Feature Distributions in " + borough_name)
-#plt.savefig(f"../figures/feature_distributions_{borough_name.replace(' ', '_')}.png")
+plt.savefig(f"../figures/feature_distributions_{borough_name.replace(' ', '_')}.png")
+plt.show()
+
+
+
+# ---------------------- 
+# 5. Boxplots of Features
+# ----------------------
+
+# Create boxplots for each feature and plot them in a grid layout
+plt.figure(figsize=(12, 8))
+for i, feature in enumerate(features):
+    plt.subplot(2, 3, i + 1)
+    sns.boxplot(y=borough_data[feature])
+    plt.title(feature)
+    plt.ylabel("")
+    
+plt.suptitle("Feature Boxplots in " + borough_name)
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.savefig(f"../figures/feature_boxplots_{borough_name.replace(' ', '_')}.png")
 plt.show()
 
 

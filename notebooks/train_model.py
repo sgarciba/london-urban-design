@@ -15,7 +15,8 @@ sys.path.append("../")
 # ----------------------
 data = gpd.read_file("../data/london_urban_design_data.gpkg")
 
-borough_name = "Kensington and Chelsea, London, UK"
+borough_name = "City of London, London, UK"
+#"Kensington and Chelsea, London, UK"
 #"City of London, London, UK"
 #"Harrow, London, UK"
 
@@ -44,43 +45,69 @@ x_idx = np.digitize(geom.x, x_bins, right=True)
 y_idx = np.digitize(geom.y, y_bins, right=True)
 spatial_groups = x_idx * 5 + y_idx
 
-skcv = GroupKFold(n_splits=5).split(X_spatial, y_spatial, groups=spatial_groups)
+cv_splits = list(GroupKFold(n_splits=5).split(X_spatial, y_spatial, groups=spatial_groups))
 
 
 # ----------------------------------------------------------------------
 # Train + evaluate: spatial split (grid-based GroupKFold folds)
+#
+# Two RF configs are compared: the original unconstrained forest and a
+# regularized one (shallower trees, larger leaves), to see how much of
+# the train/test R² gap is plain overfitting vs. irreducible spatial
+# distribution shift between folds.
 # ----------------------------------------------------------------------
-spatial_fold_metrics = []
-fold_assignments = np.full(len(X_spatial), -1, dtype=int)
-fold_r2 = np.full(len(X_spatial), np.nan)
-point_preds = np.full(len(X_spatial), np.nan)
+model_configs = {
+    "baseline": RandomForestRegressor(n_estimators=300, random_state=203, n_jobs=-1),
+    "regularized": RandomForestRegressor(
+        n_estimators=300, random_state=203, n_jobs=-1,
+        max_depth=10, min_samples_leaf=5, max_features="sqrt",
+    ),
+}
 
-for fold_num, (train_idx, test_idx) in enumerate(skcv):
-    X_fold_train, X_fold_test = X_spatial.iloc[train_idx], X_spatial.iloc[test_idx]
-    y_fold_train, y_fold_test = y_spatial.iloc[train_idx], y_spatial.iloc[test_idx]
+def run_cv(model):
+    fold_metrics = []
+    fold_assign = np.full(len(X_spatial), -1, dtype=int)
+    fold_r2_arr = np.full(len(X_spatial), np.nan)
+    preds_arr = np.full(len(X_spatial), np.nan)
 
-    spatial_model = RandomForestRegressor(n_estimators=300, random_state=203, n_jobs=-1)
-    spatial_model.fit(X_fold_train, y_fold_train)
-    fold_preds = spatial_model.predict(X_fold_test)
+    for fold_num, (train_idx, test_idx) in enumerate(cv_splits):
+        X_fold_train, X_fold_test = X_spatial.iloc[train_idx], X_spatial.iloc[test_idx]
+        y_fold_train, y_fold_test = y_spatial.iloc[train_idx], y_spatial.iloc[test_idx]
 
-    fold_r2_val = r2_score(y_fold_test, fold_preds)
-    spatial_fold_metrics.append({
-        "fold": fold_num,
-        "MAE": mean_absolute_error(y_fold_test, fold_preds),
-        "RMSE": mean_squared_error(y_fold_test, fold_preds) ** 0.5,
-        "R2": fold_r2_val,
-        "n_train": len(X_fold_train),
-        "n_test": len(X_fold_test),
-    })
+        model.fit(X_fold_train, y_fold_train)
+        fold_preds = model.predict(X_fold_test)
+        fold_train_preds = model.predict(X_fold_train)
 
-    fold_assignments[test_idx] = fold_num
-    fold_r2[test_idx] = fold_r2_val
-    point_preds[test_idx] = fold_preds
+        fold_r2_val = r2_score(y_fold_test, fold_preds)
+        fold_train_r2_val = r2_score(y_fold_train, fold_train_preds)
+        fold_metrics.append({
+            "fold": fold_num,
+            "MAE": mean_absolute_error(y_fold_test, fold_preds),
+            "RMSE": mean_squared_error(y_fold_test, fold_preds) ** 0.5,
+            "R2": fold_r2_val,
+            "train_R2": fold_train_r2_val,
+            "overfit_gap": fold_train_r2_val - fold_r2_val,
+            "n_train": len(X_fold_train),
+            "n_test": len(X_fold_test),
+        })
 
-spatial_metrics_df = pd.DataFrame(spatial_fold_metrics)
-print(spatial_metrics_df)
-print("\nMean spatial metrics:")
-print(spatial_metrics_df.mean())
+        fold_assign[test_idx] = fold_num
+        fold_r2_arr[test_idx] = fold_r2_val
+        preds_arr[test_idx] = fold_preds
+
+    return pd.DataFrame(fold_metrics), fold_assign, fold_r2_arr, preds_arr
+
+cv_results = {name: run_cv(model) for name, model in model_configs.items()}
+
+comparison = pd.DataFrame({
+    name: metrics_df[["MAE", "RMSE", "R2", "train_R2", "overfit_gap"]].mean()
+    for name, (metrics_df, _, _, _) in cv_results.items()
+})
+print("Baseline vs regularized RF — mean across spatial folds:")
+print(comparison)
+
+# Downstream diagnostics use the baseline model's fold assignments/predictions.
+spatial_metrics_df, fold_assignments, fold_r2, point_preds = cv_results["baseline"]
 
 
 # ----------------------------------------------------------------------
@@ -116,13 +143,13 @@ plt.show()
 worst_fold = int(spatial_metrics_df.loc[spatial_metrics_df["R2"].idxmin(), "fold"])
 
 df = gpd.GeoDataFrame(
-    X_spatial[["building_density", "NDVI", "NDBI"]].copy(),
+    X_spatial[["building_density", "NDVI", "NDBI", "MNDWI", "building_volume_density"]].copy(),
     geometry=geom,
     crs=borough_data.crs,
 )
 df["fold"] = fold_assignments
 
-worst = df.loc[df["fold"] == worst_fold, ["geometry", "building_density", "NDVI", "NDBI"]].copy()
+worst = df.loc[df["fold"] == worst_fold, ["geometry", "building_density", "NDVI", "NDBI", "MNDWI", "building_volume_density"]].copy()
 worst["residual"] = (
     point_preds[df["fold"] == worst_fold]
     - y_spatial[df["fold"] == worst_fold].values
@@ -131,7 +158,10 @@ worst["residual"] = (
 anomaly_mask = (
     (worst["building_density"] > worst["building_density"].quantile(0.75)) &
     (worst["NDVI"] < worst["NDVI"].quantile(0.25)) &
-    (worst["NDBI"] > worst["NDBI"].quantile(0.75))
+    (worst["NDBI"] > worst["NDBI"].quantile(0.75)) &
+    (worst["MNDWI"] < worst["MNDWI"].quantile(0.25)) &
+    (worst["building_volume_density"] > worst["building_volume_density"].quantile(0.75))
+    
 )
 
 worst_r2 = spatial_metrics_df.loc[spatial_metrics_df["fold"] == worst_fold, "R2"].iloc[0]
@@ -154,7 +184,7 @@ lst_rest = y_spatial[rest_mask]
 
 print(f"Mean actual LST — fold {worst_fold}: {lst_worst.mean():.3f}  |  rest: {lst_rest.mean():.3f}  |  diff: {lst_worst.mean() - lst_rest.mean():+.3f}")
 
-feature_cols = ["NDVI", "MNDWI", "NDBI", "building_density"]
+feature_cols = ["NDVI", "MNDWI", "NDBI", "building_density", "building_volume_density"]
 level_shift_check = pd.DataFrame({
     f"fold_{worst_fold}_mean": X_spatial.loc[worst_mask, feature_cols].mean(),
     "rest_mean": X_spatial.loc[rest_mask, feature_cols].mean(),
@@ -168,4 +198,5 @@ print(level_shift_check)
 # Use y-coordinate as a rough proxy for northing (southern boundary = river)
 df = borough_data.copy()
 df["northing"] = df.geometry.y
-print(df[["northing", "NDVI", "MNDWI", "NDBI", "building_density"]].corr()["northing"])
+print(df[["northing", "NDVI", "MNDWI", "NDBI", "building_density", "building_volume_density"]].corr()["northing"])
+
