@@ -29,6 +29,7 @@ feature_cmaps = {
     "NDBI": "RdGy",
     "MNDWI": "Blues",
     "building_density": "viridis",
+    "building_volume_density": "plasma",
 }
 
 ncols = 2
@@ -57,7 +58,7 @@ plt.show()
 # ---------------------- 
 # 3. Correlation Heatmap
 # ----------------------
-corr = borough_data[["NDVI", "NDBI", "LST", "MNDWI", "building_density"]].corr()
+corr = borough_data[["NDVI", "NDBI", "LST", "MNDWI", "building_density", "building_volume_density"]].corr()
 sns.heatmap(corr, annot=True, cmap="coolwarm")
 plt.title("Correlation Heatmap")
 plt.savefig(f"../figures/correlation_heatmap_{borough_name.replace(' ', '_')}.png")
@@ -69,7 +70,7 @@ plt.show()
 # 4. Histograms of Features
 # ----------------------
 
-features = ["NDVI", "NDBI", "LST", "MNDWI", "building_density"]
+features = ["NDVI", "NDBI", "LST", "MNDWI", "building_density", "building_volume_density"]
 
 borough_data.hist(column=features, bins=30, figsize=(12, 8), layout=(2, 3), grid=False)
 plt.suptitle("Feature Distributions in " + borough_name)

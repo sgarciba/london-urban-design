@@ -4,7 +4,10 @@ sys.path.append("../")
 import geopandas as gpd
 
 from load_dataset import download_buildings_osmnx, load_landsat_data
-from density_functions import points_to_cells, compute_density, attach_density_to_points
+from density_functions import (
+    points_to_cells, compute_density, attach_density_to_points,
+    compute_volume_density, attach_volume_density_to_points,
+)
 from config import ADMINISTRATIVE_AREA
 
 
@@ -43,7 +46,16 @@ print('Buildings After:', buildings_df_clean.shape)
 
 cells = points_to_cells(landsat_gdf_clean)          # auto-infers lon/lat resolution separately
 density_grid = compute_density(buildings_df_clean, cells)
+volume_grid = compute_volume_density(buildings_df_clean, cells)
+
 london_urban_design_df = attach_density_to_points(landsat_gdf_clean, density_grid)
+london_urban_design_df = attach_volume_density_to_points(london_urban_design_df, volume_grid)
+
+# Save final table
+out_gpkg = "../data/london_urban_design_data.gpkg"
+london_urban_design_df.to_file(out_gpkg, driver="GPKG")
+print(f"Saved {out_gpkg}")
+
 
 
 # ======================
@@ -58,3 +70,17 @@ if pct_over > 0:
     # worth inspecting these specific cells rather than blindly clipping
     problem_cells = london_urban_design_df[london_urban_design_df['building_density'] > 1.0001]
     print(problem_cells[['lon', 'lat', 'building_density']])
+
+
+# ======================
+# Save the final table — train_model.py and 02_data_exploration.py both
+# read this file from disk, so it needs to be persisted, not just held
+# in memory.
+# ======================
+out_gpkg = "../data/london_urban_design_data.gpkg"
+london_urban_design_df.to_file(out_gpkg, driver="GPKG")
+print(f"Saved {out_gpkg}")
+
+out_csv = "../data/london_urban_design_data.csv"
+london_urban_design_df.drop(columns="geometry").to_csv(out_csv, index=False)
+print(f"Saved {out_csv}")

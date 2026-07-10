@@ -1,6 +1,6 @@
-import os
 import time
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import box
 import sys
 sys.path.append("../")
@@ -8,8 +8,6 @@ sys.path.append("../")
 # ----------------------------------------------------------------------
 # CONFIG
 # ----------------------------------------------------------------------
-
-OUT_DIR = "../data/"
 
 # Columns worth keeping out of the ~1700+ sparse OSM tag columns.
 # Add/remove freely depending on what you actually need downstream.
@@ -273,14 +271,86 @@ def compute_density(
         grid_m["building_density"] = grid_m["building_density"].clip(upper=1.0)
  
     grid_out = grid_m.to_crs(output_crs)
- 
-    out_path = os.path.join(OUT_DIR, "london_building_density.gpkg")
-    grid_out.to_file(out_path, driver="GPKG")
-    print(f"Saved density grid to {out_path}")
- 
+
     return grid_out
  
  
+# ----------------------------------------------------------------------
+# STEP 3b: Levels-weighted building volume density (footprint density
+# alone can't tell a low sprawling building apart from a tower on the
+# same footprint)
+# ----------------------------------------------------------------------
+
+def compute_volume_density(
+    buildings: gpd.GeoDataFrame,
+    grid: gpd.GeoDataFrame,
+    projected_crs="EPSG:27700",
+) -> gpd.GeoDataFrame:
+    """
+    Adds a building_volume_density column: footprint area weighted by
+    the `building:levels` OSM tag, summed per cell and divided by cell
+    area. Units are "levels" (footprint-covered fraction of the cell,
+    scaled by storey count), not meters — `height` is tagged on <1% of
+    OSM buildings so it isn't usable, and `building:levels` coverage
+    itself varies a lot by borough (check it for your area of interest
+    before trusting this feature there).
+
+    Unlike compute_density(), this does NOT dissolve overlapping raw
+    building geometries first — dissolving discards per-building
+    attributes, and building:levels is exactly what's being weighted by
+    here. So genuinely overlapping polygons (duplicate outlines, inner
+    rings tagged as separate features) will double-count. Treat this as
+    a directional signal, not an exact volume measurement.
+
+    Buildings with a missing or non-numeric building:levels value are
+    excluded from the numerator entirely (not treated as 0 levels).
+
+    Returns a GeoDataFrame indexed by cell_id with building_volume and
+    building_volume_density columns — merge onto your raster table with
+    attach_volume_density_to_points().
+    """
+    if "building:levels" not in buildings.columns:
+        raise ValueError(
+            "buildings is missing a 'building:levels' column — pass the "
+            "output of select_columns() with 'building:levels' in KEEP_COLS."
+        )
+
+    output_crs = grid.crs
+
+    levels = pd.to_numeric(buildings["building:levels"], errors="coerce")
+    # A building can't have zero or negative storeys — a handful of OSM
+    # buildings are tagged this way (bad data entry), and left as-is they'd
+    # silently zero out that building's contribution instead of being
+    # excluded like any other missing value.
+    levels = levels.where(levels > 0)
+    n_usable = levels.notna().sum()
+    print(f"{n_usable} / {len(buildings)} buildings have a usable building:levels value ({n_usable / len(buildings) * 100:.1f}%)")
+
+    buildings_m = buildings.loc[levels.notna(), ["geometry"]].copy()
+    buildings_m["levels"] = levels.loc[levels.notna()].values
+    buildings_m = buildings_m.to_crs(projected_crs)
+
+    grid_m = grid.to_crs(projected_crs)
+    grid_m["cell_area"] = grid_m.geometry.area
+
+    intersections = gpd.overlay(
+        buildings_m, grid_m, how="intersection", keep_geom_type=False
+    )
+    intersections["weighted_area"] = intersections.geometry.area * intersections["levels"]
+
+    weighted_area_per_cell = intersections.groupby("cell_id")["weighted_area"].sum()
+
+    grid_m = grid_m.set_index("cell_id")
+    grid_m["building_volume"] = weighted_area_per_cell
+    grid_m["building_volume"] = grid_m["building_volume"].fillna(0)
+    grid_m["building_volume_density"] = grid_m["building_volume"] / grid_m["cell_area"]
+    grid_m = grid_m.reset_index()
+
+    grid_out = grid_m.to_crs(output_crs)
+
+    return grid_out
+
+
 def diagnose_high_density_cells(
     buildings: gpd.GeoDataFrame,
     grid: gpd.GeoDataFrame,
@@ -405,18 +475,44 @@ def attach_density_to_points(
     result["building_area"] = result["building_area"].fillna(0)
     result["building_density"] = result["building_density"].fillna(0)
     result = result.drop(columns="cell_id")
- 
-    out_path = os.path.join(OUT_DIR, "raster_with_building_density.csv")
-    result.drop(columns="geometry").to_csv(out_path, index=True)
-    print(f"Saved final merged table to {out_path}")
- 
-    out_gpkg = os.path.join(OUT_DIR, "raster_with_building_density.gpkg")
-    result.to_file(out_gpkg, driver="GPKG")
-    print(f"Saved final merged GeoDataFrame to {out_gpkg}")
- 
+
     return result
  
  
+def attach_volume_density_to_points(
+    points_gdf: gpd.GeoDataFrame, volume_density_grid: gpd.GeoDataFrame
+) -> gpd.GeoDataFrame:
+    """
+    Merges building_volume / building_volume_density back onto your
+    raster points table by matching cell_id, the same way
+    attach_density_to_points() does for building_density. Kept as a
+    separate function/output rather than folded into
+    attach_density_to_points() so you can add this feature to an
+    existing table without recomputing building_density.
+
+    Returns a copy of points_gdf — with its original index preserved —
+    plus building_volume and building_volume_density columns.
+    """
+    original_index_name = points_gdf.index.name
+
+    points_gdf = points_gdf.copy()
+    points_gdf["cell_id"] = points_gdf.index.astype(str)
+
+    volume_lookup = volume_density_grid.set_index("cell_id")[["building_volume", "building_volume_density"]]
+
+    result = points_gdf.merge(
+        volume_lookup, on="cell_id", how="left", left_index=False, right_index=False
+    )
+    result.index = points_gdf.index
+    result.index.name = original_index_name
+
+    result["building_volume"] = result["building_volume"].fillna(0)
+    result["building_volume_density"] = result["building_volume_density"].fillna(0)
+    result = result.drop(columns="cell_id")
+
+    return result
+
+
 # ----------------------------------------------------------------------
 # MAIN (notebook usage)
 # ----------------------------------------------------------------------
@@ -426,10 +522,15 @@ if __name__ == "__main__":
         "This module is meant to be imported into your notebook, since "
         "your `buildings` and raster point table already exist there.\n\n"
         "from london_building_density import (\n"
-        "    select_columns, points_to_cells, compute_density, attach_density_to_points\n"
+        "    select_columns, points_to_cells, compute_density, attach_density_to_points,\n"
+        "    compute_volume_density, attach_volume_density_to_points\n"
         ")\n\n"
         "buildings_clean = select_columns(buildings)\n"
         "cells = points_to_cells(raster_df)  # raster_df has lon/lat/NDVI/etc.\n"
         "density_grid = compute_density(buildings_clean, cells)\n"
-        "final = attach_density_to_points(raster_df, density_grid)"
+        "final = attach_density_to_points(raster_df, density_grid)\n\n"
+        "# optional: levels-weighted building volume, check building:levels\n"
+        "# coverage for your area first — it varies a lot by borough\n"
+        "volume_grid = compute_volume_density(buildings_clean, cells)\n"
+        "final = attach_volume_density_to_points(final, volume_grid)"
     )

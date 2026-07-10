@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split, GroupKFold
+from sklearn.model_selection import GroupKFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
- 
+
 import sys
 sys.path.append("../")
 
@@ -15,7 +15,8 @@ sys.path.append("../")
 # ----------------------
 data = gpd.read_file("../data/london_urban_design_data.gpkg")
 
-borough_name = "City of London, London, UK"
+borough_name = "Kensington and Chelsea, London, UK"
+#"City of London, London, UK"
 #"Harrow, London, UK"
 
 borough_gdf = ox.geocode_to_gdf(borough_name)
@@ -24,7 +25,7 @@ borough_polygon = borough_gdf.geometry.iloc[0]
 borough_mask = data.within(borough_polygon)
 borough_data = data[borough_mask]
 
-borough_data.shape
+print(borough_data.shape)
 borough_data.head()
  
 
@@ -140,9 +141,31 @@ print(f"  Rest of fold mean residual      : {worst.loc[~anomaly_mask, 'residual'
 print(f"  Anomalous points                : {anomaly_mask.sum()} / {len(worst)}")
 
 
+# ----------------------------------------------------------------------
+# Diagnostic: is the worst fold's error a level-shift (unmodeled baseline
+# temperature) or a feature-distribution mismatch? Compare actual LST and
+# feature means between the worst fold and the rest of the borough.
+# ----------------------------------------------------------------------
+worst_mask = fold_assignments == worst_fold
+rest_mask = ~worst_mask
+
+lst_worst = y_spatial[worst_mask]
+lst_rest = y_spatial[rest_mask]
+
+print(f"Mean actual LST — fold {worst_fold}: {lst_worst.mean():.3f}  |  rest: {lst_rest.mean():.3f}  |  diff: {lst_worst.mean() - lst_rest.mean():+.3f}")
+
+feature_cols = ["NDVI", "MNDWI", "NDBI", "building_density"]
+level_shift_check = pd.DataFrame({
+    f"fold_{worst_fold}_mean": X_spatial.loc[worst_mask, feature_cols].mean(),
+    "rest_mean": X_spatial.loc[rest_mask, feature_cols].mean(),
+})
+level_shift_check["diff"] = level_shift_check[f"fold_{worst_fold}_mean"] - level_shift_check["rest_mean"]
+print(level_shift_check)
+
+
 # test to see if the model is picking up the relationship with being near the water
 # How strongly do existing features already encode "near the river"?
 # Use y-coordinate as a rough proxy for northing (southern boundary = river)
 df = borough_data.copy()
 df["northing"] = df.geometry.y
-print(df[["northing", "NDVI", "NDBI", "building_density"]].corr()["northing"])
+print(df[["northing", "NDVI", "MNDWI", "NDBI", "building_density"]].corr()["northing"])
