@@ -1,3 +1,4 @@
+import os
 import osmnx as ox
 import sys
 sys.path.append("../")
@@ -51,12 +52,6 @@ volume_grid = compute_volume_density(buildings_df_clean, cells)
 london_urban_design_df = attach_density_to_points(landsat_gdf_clean, density_grid)
 london_urban_design_df = attach_volume_density_to_points(london_urban_design_df, volume_grid)
 
-# Save final table
-out_gpkg = "../data/london_urban_design_data.gpkg"
-london_urban_design_df.to_file(out_gpkg, driver="GPKG")
-print(f"Saved {out_gpkg}")
-
-
 
 # ======================
 # Sanity Checks
@@ -78,6 +73,13 @@ if pct_over > 0:
 # in memory.
 # ======================
 out_gpkg = "../data/london_urban_design_data.gpkg"
+if os.path.exists(out_gpkg):
+    # GPKG is a multi-layer SQLite container — writing to an existing file
+    # can add a new layer alongside whatever's already there rather than
+    # replacing it outright, and gpd.read_file() silently defaults to
+    # GDAL's first-listed layer rather than the one just written. Removing
+    # the file first guarantees a single, unambiguous layer on every run.
+    os.remove(out_gpkg)
 london_urban_design_df.to_file(out_gpkg, driver="GPKG")
 print(f"Saved {out_gpkg}")
 

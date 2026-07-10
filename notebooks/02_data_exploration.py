@@ -16,7 +16,7 @@ borough_polygon = borough_gdf.geometry.iloc[0]
 borough_mask = data.within(borough_polygon)
 borough_data = data[borough_mask]
 
-borough_data.shape
+print(borough_data.shape)
 borough_data.head()
 
 # ---------------------- 
