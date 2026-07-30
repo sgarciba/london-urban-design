@@ -1,6 +1,6 @@
 # 🏙️ London Urban Design
 
-Exploring how urban form relates to land surface temperature (LST) across London. Building footprints (OSM) and satellite-derived NDVI/NDBI/LST (Google Earth Engine Landsat data) are combined into a gridded dataset of building density and vegetation/built-up indices, then used to model LST with a Random Forest, testing both random and spatial train/test splits.
+Exploring how urban form relates to land surface temperature (LST) across London. Building footprints (OSM) and satellite-derived NDVI/NDBI/MNDWI/Albedo/LST (Google Earth Engine Landsat data) are combined into a gridded dataset of building density and vegetation/built-up/water/reflectance indices, then used to model LST with a Random Forest, testing both random and spatial train/test splits.
 
 ## 📂 Structure
 
@@ -19,5 +19,8 @@ Exploring how urban form relates to land surface temperature (LST) across London
 | `NDVI` | Feature | Normalized Difference Vegetation Index — vegetation greenness, roughly -1 to 1 | Landsat/GEE |
 | `NDBI` | Feature | Normalized Difference Built-up Index — built-up/impervious surface signal | Landsat/GEE |
 | `MNDWI` | Feature | Modified Normalized Difference Water Index — water/moisture proxy | Landsat/GEE |
+| `ALBEDO` | Feature | Broadband surface albedo (Liang 2001 coefficients, adapted for Landsat 8) — surface reflectivity, roughly 0-1 | Landsat/GEE |
+| `building_area` | Feature | Total OSM building footprint area per cell (m²), after dissolving overlapping polygons | Computed — `density_functions.py: compute_density` |
 | `building_density` | Feature | Fraction of the pixel cell covered by OSM building footprint (0-1), after dissolving overlapping polygons to avoid double-counting | Computed — `density_functions.py: compute_density` |
 | `building_volume` | Feature | Footprint area weighted by the OSM `building:levels` tag, summed per cell (m² × storeys) — a rough proxy for building mass/height, since footprint density alone can't tell a low sprawling building apart from a tower on the same footprint. Not a true height measurement — OSM's `height` tag is present on <1% of buildings, and `building:levels` coverage itself varies a lot by borough | Computed — `density_functions.py: compute_volume_density` |
+| `building_volume_density` | Feature | `building_volume` divided by cell area — levels-weighted building density, distinguishing a tall tower from a low sprawling building with the same footprint | Computed — `density_functions.py: compute_volume_density` |

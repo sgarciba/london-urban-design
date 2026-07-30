@@ -16,7 +16,7 @@ borough_polygon = borough_gdf.geometry.iloc[0]
 borough_mask = data.within(borough_polygon)
 borough_data = data[borough_mask]
 
-borough_data.shape
+print(borough_data.shape)
 borough_data.head()
 
 # ---------------------- 
@@ -28,6 +28,7 @@ feature_cmaps = {
     "NDVI": "YlGn",
     "NDBI": "RdGy",
     "MNDWI": "Blues",
+    "ALBEDO": "cividis",
     "building_density": "viridis",
     "building_volume_density": "plasma",
 }
@@ -58,7 +59,7 @@ plt.show()
 # ---------------------- 
 # 3. Correlation Heatmap
 # ----------------------
-corr = borough_data[["NDVI", "NDBI", "LST", "MNDWI", "building_density", "building_volume_density"]].corr()
+corr = borough_data[["NDVI", "NDBI", "LST", "MNDWI", "ALBEDO", "building_density", "building_volume_density"]].corr()
 sns.heatmap(corr, annot=True, cmap="coolwarm")
 plt.title("Correlation Heatmap")
 plt.savefig(f"../figures/correlation_heatmap_{borough_name.replace(' ', '_')}.png")
@@ -70,11 +71,30 @@ plt.show()
 # 4. Histograms of Features
 # ----------------------
 
-features = ["NDVI", "NDBI", "LST", "MNDWI", "building_density", "building_volume_density"]
+features = ["NDVI", "NDBI", "LST", "MNDWI", "ALBEDO", "building_density", "building_volume_density"]
 
-borough_data.hist(column=features, bins=30, figsize=(12, 8), layout=(2, 3), grid=False)
+borough_data.hist(column=features, bins=30, figsize=(12, 8), layout=(2, 4), grid=False)
 plt.suptitle("Feature Distributions in " + borough_name)
-#plt.savefig(f"../figures/feature_distributions_{borough_name.replace(' ', '_')}.png")
+plt.savefig(f"../figures/feature_distributions_{borough_name.replace(' ', '_')}.png")
+plt.show()
+
+
+
+# ---------------------- 
+# 5. Boxplots of Features
+# ----------------------
+
+# Create boxplots for each feature and plot them in a grid layout
+plt.figure(figsize=(12, 8))
+for i, feature in enumerate(features):
+    plt.subplot(2, 4, i + 1)
+    sns.boxplot(y=borough_data[feature])
+    plt.title(feature)
+    plt.ylabel("")
+    
+plt.suptitle("Feature Boxplots in " + borough_name)
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.savefig(f"../figures/feature_boxplots_{borough_name.replace(' ', '_')}.png")
 plt.show()
 
 
