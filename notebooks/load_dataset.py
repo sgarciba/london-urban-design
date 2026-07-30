@@ -73,6 +73,7 @@ def download_landsat(GOOGLE_DRIVE_CLIENT_SECRETS_JSON, FOLDER_NAME, FILE_NAME):
     with rasterio.open(FILE_NAME) as src:
         data = src.read()
         meta = src.meta.copy()
+        band_descriptions = src.descriptions
 
     # Update metadata
     meta.update({
@@ -84,6 +85,7 @@ def download_landsat(GOOGLE_DRIVE_CLIENT_SECRETS_JSON, FOLDER_NAME, FILE_NAME):
 
     with rasterio.open(out_path, "w", **meta) as dst:
         dst.write(data)
+        dst.descriptions = band_descriptions
         
 
 def load_landsat_data(FILE_NAME):
@@ -91,6 +93,7 @@ def load_landsat_data(FILE_NAME):
     with rasterio.open("../data/" + FILE_NAME) as src:
         data = src.read()
         transform = src.transform
+        band_names = src.descriptions
 
     rows, cols = np.meshgrid(
         np.arange(data.shape[1]),
@@ -103,10 +106,7 @@ def load_landsat_data(FILE_NAME):
     df = pd.DataFrame({
         "lon": np.array(xs).ravel(),
         "lat": np.array(ys).ravel(),
-        "NDVI": data[0].ravel(),
-        "NDBI": data[1].ravel(),
-        "MNDWI": data[2].ravel(),
-        "LST": data[3].ravel()
+        **{name: data[i].ravel() for i, name in enumerate(band_names)},
     })
 
     df.head()

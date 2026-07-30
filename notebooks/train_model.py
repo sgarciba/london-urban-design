@@ -30,8 +30,8 @@ borough_data = data[borough_mask]
 print(borough_data.shape)
 borough_data.head()
 
-fig_dir = os.path.join("../figures", borough_name.split(",")[0].strip().lower().replace(" ", "_"))
-os.makedirs(fig_dir, exist_ok=True)
+#fig_dir = os.path.join("../figures", borough_name.split(",")[0].strip().lower().replace(" ", "_"))
+#os.makedirs(fig_dir, exist_ok=True)
 
 
 # ----------------------------------------------------------------------
@@ -138,7 +138,7 @@ axes[1].set_title("R² by fold")
 axes[1].set_axis_off()
 
 plt.tight_layout()
-plt.savefig(os.path.join(fig_dir, "spatial_cv_fold_r2_map.png"), dpi=150, bbox_inches="tight")
+# plt.savefig(os.path.join(fig_dir, "spatial_cv_fold_r2_map.png"), dpi=150, bbox_inches="tight")
 plt.show()
 
 
@@ -196,11 +196,3 @@ level_shift_check = pd.DataFrame({
 })
 level_shift_check["diff"] = level_shift_check[f"fold_{worst_fold}_mean"] - level_shift_check["rest_mean"]
 print(level_shift_check)
-
-
-# test to see if the model is picking up the relationship with being near the water
-# How strongly do existing features already encode "near the river"?
-# Use y-coordinate as a rough proxy for northing (southern boundary = river)
-df = borough_data.copy()
-df["northing"] = df.geometry.y
-print(df[["northing", "NDVI", "MNDWI", "NDBI", "building_density", "building_volume_density"]].corr()["northing"])
