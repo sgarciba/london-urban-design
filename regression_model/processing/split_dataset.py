@@ -16,10 +16,14 @@ def borough_spatial_split(data, train_boroughts):
         train_polygons.append(borough_polygon)
     
     borough_mask = data.within(train_polygons)
-    X_train = data[borough_mask].drop(columns=["LST", "geometry", "lon", "lat"]).reset_index(drop=True) 
+    X_train = data[borough_mask].drop(columns=["LST"]).reset_index(drop=True) 
     y_train = data[borough_mask]["LST"].reset_index(drop=True)
     
-    X_test = data[~borough_mask].drop(columns=["LST", "geometry", "lon", "lat"]).reset_index(drop=True)
+    X_test = data[~borough_mask].drop(columns=["LST"]).reset_index(drop=True)
     y_test = data[~borough_mask]["LST"].reset_index(drop=True)
     
     return X_train, y_train, X_test, y_test
+
+
+if __name__ == "__main__":
+    pass

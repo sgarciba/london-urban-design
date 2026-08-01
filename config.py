@@ -7,7 +7,7 @@ FILE_NAME = "London_Landsat_Features_2022.tif"
 ADMINISTRATIVE_AREA = "Greater London, United Kingdom"
 KEEP_COLS = ["geometry", "building", "name", "building:levels", "height"]
 
-
+TRAINED_BOROUGHTS = ["City of London", "Kensington and Chelsea", "Harrow"]
 
 
 
