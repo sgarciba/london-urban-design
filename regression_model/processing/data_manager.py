@@ -35,3 +35,10 @@ def save_pipeline(*, pipeline_to_persist: Pipeline) -> None:
 
     remove_old_pipelines(files_to_keep=[save_file_name])
     joblib.dump(pipeline_to_persist, save_path)
+
+
+def load_pipeline(*, file_name: str) -> Pipeline:
+    """Load a persisted pipeline."""
+
+    file_path = TRAINED_MODEL_DIR / file_name
+    return joblib.load(file_path)

@@ -1,25 +1,26 @@
 import geopandas as gpd
 from config import DATASET_PATH, TRAINED_BOROUGHTS
-from pipeline import lst_pipeline
-from processing.data_manager import save_pipeline
-from processing.split_dataset import borough_spatial_split
-
-import sys
-sys.path.append("./")
+from regression_model.pipeline import lst_pipeline
+from regression_model.processing.data_manager import save_pipeline
+from regression_model.processing.split_dataset import borough_spatial_split
 
 def run_training() -> None:
     """Train the model."""
 
-    # read training data
+    # 1. Read training data
+    print(f"1. Reading training data from {DATASET_PATH}")
     data = gpd.read_file(DATASET_PATH)
 
-    # divide train and test
+    # 2. Split dataset
+    print("2. Splitting dataset")
     X_train, X_test, y_train, y_test = borough_spatial_split(data, TRAINED_BOROUGHTS)
 
-    # fit model
+    # 3. Fit model
+    print("3. Fitting model")
     lst_pipeline.fit(X_train, y_train)
 
-    # persist trained model
+    # 4. Saved trained model
+    print("4. Saving trained model")
     save_pipeline(pipeline_to_persist=lst_pipeline)
 
 
