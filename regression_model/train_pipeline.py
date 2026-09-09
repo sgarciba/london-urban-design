@@ -5,7 +5,7 @@ from processing.data_manager import save_pipeline
 from processing.split_dataset import borough_spatial_split
 
 import sys
-sys.path.append("../")
+sys.path.append("./")
 
 def run_training() -> None:
     """Train the model."""

@@ -9,7 +9,7 @@ KEEP_COLS = ["geometry", "building", "name", "building:levels", "height"]
 
 TRAINED_BOROUGHTS = ["City of London", "Kensington and Chelsea", "Harrow"]
 
-
+TRAINED_MODEL_DIR = "regression_model/trained_model"
 
 if __name__ == "__main__":
     pass
