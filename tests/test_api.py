@@ -1,10 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from sklearn.datasets import fetch_california_housing
 from config import DATASET_PATH, TRAIN_COLS
 import geopandas as gpd
-from pathlib import Path
-
 from app.main import app
 
 
