@@ -1,5 +1,4 @@
-from pydantic import BaseModel, ConfigDict
-#from pydantic.alias_generators import to_pascal
+from pydantic import BaseModel
 
 
 class PredictionResponse(BaseModel):
