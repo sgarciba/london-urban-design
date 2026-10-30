@@ -1,0 +1,9 @@
+venv/
+data/
+cache/
+figures/
+notebooks/
+.git/
+.pytest_cache/
+**/__pycache__/
+credentials.py
