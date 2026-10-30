@@ -79,6 +79,12 @@ def run():
     london_urban_design_df.drop(columns="geometry").to_csv(out_csv, index=False)
     print(f"Saved {out_csv}")
 
+    # Small fixed-seed sample committed to git (the full dataset is
+    # gitignored) so tests and CI have real input rows to run on.
+    out_sample = "../data/london_urban_design_sample.csv"
+    london_urban_design_df.drop(columns="geometry").sample(n=50, random_state=42).to_csv(out_sample, index=False)
+    print(f"Saved {out_sample}")
+
 
 if __name__ == "__main__":
     run()

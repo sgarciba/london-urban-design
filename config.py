@@ -4,6 +4,7 @@ FOLDER_NAME = "GEE_Exports"
 FILE_NAME = "London_Landsat_Features_2022.tif"
 
 DATASET_PATH = "data/london_urban_design_data.gpkg"
+SAMPLE_DATASET_PATH = "data/london_urban_design_sample.csv"
 
 ADMINISTRATIVE_AREA = "Greater London, United Kingdom"
 KEEP_COLS = ["geometry", "building", "name", "building:levels", "height"]

@@ -4,6 +4,7 @@ __pycache__/
 
 data/*
 !data/Landstant_code.txt
+!data/london_urban_design_sample.csv
 
 credentials.py
 venv/
